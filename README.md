@@ -13,7 +13,37 @@ This project createa a set of distributed communicating processes that communica
 - **Date:** 31/03/23<br>
 
 - **How to run project:**
-TBC......
+	- **Compile** ->  ```c(erl_proj).```
+	- **Launch Nodes** -> 
+	```
+	PID1 = erl_proj:launchNode(jane),
+	PID2 = erl_proj:launchNode(phil),
+	PID3 = erl_proj:launchNode(maxine),
+	PID4 = erl_proj:launchNode(jessica),
+	PID5 = erl_proj:launchNode(fillipe),
+	PID6 = erl_proj:launchNode(jo),
+	PID7 = erl_proj:launchNode(max),
+	PID8 = erl_proj:launchNode(jack),
+	PID9 = erl_proj:launchNode(bruno),
+	PID10 = erl_proj:launchNode(jeff).
+	```
+	- **Connect Nodes** ->
+	```
+	erl_proj:connectNode(jane, PID1 , phil, PID2 ),
+	erl_proj:connectNode(phil, PID2 , maxine, PID3 ),
+	erl_proj:connectNode(maxine, PID3 , jessica, PID4 ),
+	erl_proj:connectNode(jessica, PID4 , fillipe, PID5 ),
+	erl_proj:connectNode(fillipe, PID5 , jo, PID6 ),
+	erl_proj:connectNode(jo, PID6 , max, PID7 ),
+	erl_proj:connectNode(max, PID7 , jack, PID8 ),
+	erl_proj:connectNode(jack, PID8 , bruno, PID9 ),
+	erl_proj:connectNode(bruno, PID9 , jeff, PID10 ),
+	erl_proj:connectNode(jeff, PID10 , jane, PID1 ).
+	```
+	- **Retrieve Answer** ->
+	```erlProject:rpc(joe,{computeNthPrime,5,joe,bob,1}).```
+	- **Print Routing Table** ->
+	```erlProject:printTable(PID1).```
 	
 - **List of any required Libraries, platform issues, etc.:**
 	- **Linux** - Environment
@@ -23,4 +53,3 @@ TBC......
 	
 - **List of files and what they contain:**
 TBC.....
-	
