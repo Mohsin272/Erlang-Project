@@ -16,29 +16,29 @@ This project creates a set of distributed communicating processes that communica
 	- **Compile** ->  ```c(erlProject).```
 	- **Launch Nodes** -> 
 	```
-	PID1 = erl_proj:launchNode(joe),
-	PID2 = erl_proj:launchNode(bob),
-	PID3 = erl_proj:launchNode(fred),
-	PID4 = erl_proj:launchNode(amy),
-	PID5 = erl_proj:launchNode(dan),
-	PID6 = erl_proj:launchNode(mike),
-	PID7 = erl_proj:launchNode(ann),
-	PID8 = erl_proj:launchNode(jack),
-	PID9 = erl_proj:launchNode(mohsin),
-	PID10 = erl_proj:launchNode(jeff).
+	PID1 = erlProject:launchNode(joe),
+	PID2 = erlProject:launchNode(bob),
+	PID3 = erlProject:launchNode(fred),
+	PID4 = erlProject:launchNode(amy),
+	PID5 = erlProject:launchNode(dan),
+	PID6 = erlProject:launchNode(mike),
+	PID7 = erlProject:launchNode(ann),
+	PID8 = erlProject:launchNode(jack),
+	PID9 = erlProject:launchNode(mohsin),
+	PID10 = erlProject:launchNode(jeff).
 	```
 	- **Connect Nodes** ->
 	```
-	erl_proj:connectNode(joe, PID1 , bob, PID2 ),
-	erl_proj:connectNode(bob, PID2 , fred, PID3 ),
-	erl_proj:connectNode(fred, PID3 , amy, PID4 ),
-	erl_proj:connectNode(amy, PID4 , dan, PID5 ),
-	erl_proj:connectNode(dan, PID5 , mike, PID6 ),
-	erl_proj:connectNode(mike, PID6 , ann, PID7 ),
-	erl_proj:connectNode(ann, PID7 , jack, PID8 ),
-	erl_proj:connectNode(jack, PID8 , mohsin, PID9 ),
-	erl_proj:connectNode(mohsin, PID9 , jeff, PID10 ),
-	erl_proj:connectNode(jeff, PID10 , joe, PID1 ).
+	erlProject:connectNode(joe, PID1 , bob, PID2 ),
+	erlProject:connectNode(bob, PID2 , fred, PID3 ),
+	erlProject:connectNode(fred, PID3 , amy, PID4 ),
+	erlProject:connectNode(amy, PID4 , dan, PID5 ),
+	erlProject:connectNode(dan, PID5 , mike, PID6 ),
+	erlProject:connectNode(mike, PID6 , ann, PID7 ),
+	erlProject:connectNode(ann, PID7 , jack, PID8 ),
+	erlProject:connectNode(jack, PID8 , mohsin, PID9 ),
+	erlProject:connectNode(mohsin, PID9 , jeff, PID10 ),
+	erlProject:connectNode(jeff, PID10 , joe, PID1 ).
 	```
 	- **Retrieve Answer** ->
 	```erlProject:rpc(joe,{computeNthPrime,5,joe,bob,1}).```
