@@ -7,7 +7,7 @@ This project creates a set of distributed communicating processes that communica
 
 - **Authors of Project:**
 	- **Student:** Mohsin Tahir
-	- **Lecturer:** Joeseph Kehoe
+	- **Lecturer:** Joseph Kehoe
 - **Student Number:** C00250220
 - **Institution:** SETU Carlow
 - **Date:** 31/03/23<br>
