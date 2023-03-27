@@ -7,7 +7,7 @@ This project createa a set of distributed communicating processes that communica
 
 - **Authors of Project:**
 	- **Student:** Mohsin Tahir
-	- **Lecturer:** Joseph Kehoe
+	- **Lecturer:** amyseph Kehoe
 - **Student Number:** C00250220
 - **Institution:** SETU Carlow
 - **Date:** 31/03/23<br>
@@ -16,29 +16,29 @@ This project createa a set of distributed communicating processes that communica
 	- **Compile** ->  ```c(erl_proj).```
 	- **Launch Nodes** -> 
 	```
-	PID1 = erl_proj:launchNode(jane),
-	PID2 = erl_proj:launchNode(phil),
-	PID3 = erl_proj:launchNode(maxine),
-	PID4 = erl_proj:launchNode(jessica),
-	PID5 = erl_proj:launchNode(fillipe),
-	PID6 = erl_proj:launchNode(jo),
-	PID7 = erl_proj:launchNode(max),
+	PID1 = erl_proj:launchNode(joe),
+	PID2 = erl_proj:launchNode(bob),
+	PID3 = erl_proj:launchNode(fred),
+	PID4 = erl_proj:launchNode(amy),
+	PID5 = erl_proj:launchNode(dan),
+	PID6 = erl_proj:launchNode(mike),
+	PID7 = erl_proj:launchNode(ann),
 	PID8 = erl_proj:launchNode(jack),
-	PID9 = erl_proj:launchNode(bruno),
+	PID9 = erl_proj:launchNode(mohsin),
 	PID10 = erl_proj:launchNode(jeff).
 	```
 	- **Connect Nodes** ->
 	```
-	erl_proj:connectNode(jane, PID1 , phil, PID2 ),
-	erl_proj:connectNode(phil, PID2 , maxine, PID3 ),
-	erl_proj:connectNode(maxine, PID3 , jessica, PID4 ),
-	erl_proj:connectNode(jessica, PID4 , fillipe, PID5 ),
-	erl_proj:connectNode(fillipe, PID5 , jo, PID6 ),
-	erl_proj:connectNode(jo, PID6 , max, PID7 ),
-	erl_proj:connectNode(max, PID7 , jack, PID8 ),
-	erl_proj:connectNode(jack, PID8 , bruno, PID9 ),
-	erl_proj:connectNode(bruno, PID9 , jeff, PID10 ),
-	erl_proj:connectNode(jeff, PID10 , jane, PID1 ).
+	erl_proj:connectNode(joe, PID1 , bob, PID2 ),
+	erl_proj:connectNode(bob, PID2 , fred, PID3 ),
+	erl_proj:connectNode(fred, PID3 , amy, PID4 ),
+	erl_proj:connectNode(amy, PID4 , dan, PID5 ),
+	erl_proj:connectNode(dan, PID5 , mike, PID6 ),
+	erl_proj:connectNode(mike, PID6 , ann, PID7 ),
+	erl_proj:connectNode(ann, PID7 , jack, PID8 ),
+	erl_proj:connectNode(jack, PID8 , mohsin, PID9 ),
+	erl_proj:connectNode(mohsin, PID9 , jeff, PID10 ),
+	erl_proj:connectNode(jeff, PID10 , joe, PID1 ).
 	```
 	- **Retrieve Answer** ->
 	```erlProject:rpc(joe,{computeNthPrime,5,joe,bob,1}).```
