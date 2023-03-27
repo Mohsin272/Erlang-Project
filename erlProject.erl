@@ -1,9 +1,9 @@
 -module(erlProject).
--export([computeNthPrime/4, ripNode/3, createNode/1, start/1, connectNode/4, printTable/1]).
+-export([computeNthPrime/4, ripNode/3, launchNode/1, start/1, connectNode/4, printTable/1,rpc/2]).
 
 
 % Create a new node with a given Nickname
-createNode(Nickname)->
+launchNode(Nickname)->
     PID=spawn(fun()->erlProject:start(Nickname) end),
     io:fwrite("~p : Created node as ~p ~n",[PID,Nickname]),
     PID.
@@ -37,7 +37,8 @@ ripNode(MyNickname, NList, RTList) ->
             ripNode(MyNickname, NList, RTList);
         % Compute the Nth prime number
         {computeNthPrime, N, SenderNickname, DestinationNickname, Hops} ->
-            processMsgQuestion(N, SenderNickname, MyNickname, DestinationNickname, Hops, NList, RTList);
+            processMsgQuestion(N, SenderNickname, MyNickname, DestinationNickname, Hops, NList, RTList),
+            ripNode(MyNickname, NList, RTList);
         % Receive the answer to the Nth prime computation
         {receiveAnswer, N, M, Destination, Sender, Hops} ->
             if MyNickname == Destination ->
@@ -51,6 +52,10 @@ ripNode(MyNickname, NList, RTList) ->
         {updateRT, NewNickname, NewPID} ->
             UpdatedRTList = update_routing_table(RTList, NewNickname, NewPID, 1),
             ripNode(MyNickname, NList, UpdatedRTList);
+        {From, {computeNthPrime, N, SenderNickname, DestinationNickname, Hops}} ->
+            processMsgQuestion(N, SenderNickname, MyNickname, DestinationNickname, Hops, NList, RTList),
+            From ! {self(), computeNthPrime(N)},
+            ripNode(MyNickname, NList, RTList);
         % Connect to another node
         {connect, Nickname, PID} ->
             UpdatedRTList = update_routing_table(RTList, Nickname, PID, 1),
@@ -102,6 +107,17 @@ processMsgAnswer(N, M, Sender, Destination, Hops, NList, RTList) ->
             io:format("Error: Destination not found in the routing table")
     end.
 
+rpc(PID, MSG)->
+    PID!{self(),MSG},
+    receive
+        {PID,Reply}->
+            io:format("Received answer: ~p~n", [Reply]),
+            Reply;
+        {From,Reply}->
+            io:format("Received answer from ~p: ~p~n", [From, Reply]),
+            Reply
+    end.
+
 
 lookup([], _) ->
     notFound;
@@ -141,4 +157,3 @@ isPrime(N, CheckNum) ->
         _ ->
             isPrime(N, CheckNum + 1)
     end.
-
