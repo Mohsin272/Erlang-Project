@@ -1,118 +1,114 @@
 -module(erlProject).
--export([computeNthPrime/1,ripNode/3,createNode/1,start/1,connectNode/4,setup/0,printTable/1,computeNthPrime/4,printNeighbours/1]).
+-export([computeNthPrime/4, ripNode/3, createNode/1, start/1, connectNode/4, printTable/1]).
 
-setup()->
-    [createNode(john),
-     createNode(bob),
-     createNode(fred),
-     createNode(joe),
-     createNode(jimbob),
-     createNode(mo),
-     createNode(charlie),
-     createNode(kate),
-     createNode(jessy),
-     createNode(walter)].
 
+% Create a new node with a given Nickname
 createNode(Nickname)->
     PID=spawn(fun()->erlProject:start(Nickname) end),
     io:fwrite("~p : Created node as ~p ~n",[PID,Nickname]),
     PID.
 
-connectNode(FirstNickname,FirstPID,SecondNickname,SecondPID)->
-    FirstNickname!{connect,SecondNickname,SecondPID},
-    SecondNickname!{connect,FirstNickname,FirstPID}.
+% Connect two nodes by their Nicknames and PIDs
+connectNode(FirstNickname, FirstPID, SecondNickname, SecondPID)->
+    FirstNickname!{connect, SecondNickname, SecondPID},
+    SecondNickname!{connect, FirstNickname, FirstPID},
+    FirstNickname!{updateRT, SecondNickname, SecondPID},
+    SecondNickname!{updateRT, FirstNickname, FirstPID}.
 
+% Print the routing table of a given node
 printTable(PID)->
-    PID!{printRoutingTable}.
-printNeighbours(PID)->
-    PID!{printNeighboursTable}.
-computeNthPrime(N,Sender,Desination,Hops)->
-    Sender ! {computeNthPrime,N,Sender,Desination,Hops}.
+    PID ! {printRoutingTable}.
+
+% Initiate the computation of the Nth prime number
+computeNthPrime(N, SenderNickname, DestinationNickname, Hops)->
+    SenderNickname ! {computeNthPrime, N, SenderNickname, DestinationNickname, Hops}.
+
+% Start the node with a given Nickname
 start(Nickname)->
     register(Nickname,self()),
     ripNode(Nickname,[],[]).
 
+% Main loop for processing messages
 ripNode(MyNickname, NList, RTList) ->
     receive
-        % {printNeighbours} ->
-        %     io:fwrite("~p ~p : Neighbours Table ~p ~n", [self(), MyNickname, NList]),
-        %     ripNode(MyNickname, NList, RTList);
+        % Print the routing table
         {printRoutingTable} ->
             io:fwrite("~p ~p : Routing Table ~p ~n", [self(), MyNickname, RTList]),
             ripNode(MyNickname, NList, RTList);
-        {computeNthPrime, N, Sender, Destination, Hops} ->
-            processMsgQuestion(N, Sender, Destination, Hops, NList, RTList);
-        {recieveAnswer, N, M, Sender, Destination, Hops} ->
-            processMsgAnswer(N, M, Sender, Destination, Hops);
-        {updateRT, Sender, RTList} ->
-            processRT(RTList);
+        % Compute the Nth prime number
+        {computeNthPrime, N, SenderNickname, DestinationNickname, Hops} ->
+            processMsgQuestion(N, SenderNickname, MyNickname, DestinationNickname, Hops, NList, RTList);
+        % Receive the answer to the Nth prime computation
+        {receiveAnswer, N, M, Destination, Sender, Hops} ->
+            if MyNickname == Destination ->
+                io:format("Answer received: Number=~p, Answer=~p, Sender=~p, Destination=~p, Hops=~p~n", [N, M, Sender, Destination, Hops]),
+                ripNode(MyNickname, NList, RTList);
+            true ->
+                processMsgAnswer(N, M, Sender, Destination, Hops, NList, RTList),
+                ripNode(MyNickname, NList, RTList)
+            end;
+        % Update the routing table
+        {updateRT, NewNickname, NewPID} ->
+            UpdatedRTList = update_routing_table(RTList, NewNickname, NewPID, 1),
+            ripNode(MyNickname, NList, UpdatedRTList);
+        % Connect to another node
         {connect, Nickname, PID} ->
+            UpdatedRTList = update_routing_table(RTList, Nickname, PID, 1),
             io:fwrite("~p ~p : Connected to node ~p ~n", [self(), PID, Nickname]),
-            ripNode(MyNickname, NList ++ [{Nickname, PID}], RTList);
-        {printNeighboursTable} ->
-            lists:foreach(fun({Nickname, PID}) ->
-                                    io:fwrite("~p ~p: Neighbour ~p with PID ~p~n", [self(), MyNickname, Nickname, PID])
-                            end, NList),
-            ripNode(MyNickname, NList, RTList)
-    end,
-    ripNode(MyNickname, NList, RTList).
-    
-
-% ripNode(MyNickname, NList, RTList) ->
-%     receive
-%         {printNeighbours}->
-%             io:fwrite("~p ~p : Neighbours Table ~p ~n",[self(),MyNickname,NList]),
-%             ripNode(MyNickname,NList,RTList);
-%         {printRoutingTable}->
-%             io:fwrite("~p ~p : Routing Table ~p ~n",[self(),MyNickname,RTList]),
-%             ripNode(MyNickname,NList,RTList);
-%         {computeNthPrime, N, Sender, Desination, Hops} ->
-%             processMsgQuestion(N, Sender, Desination, Hops, NList, RTList);
-%         {recieveAnswer, N, M, Sender, Desination, Hops} ->
-%             processMsgAnswer(N, M, Sender, Desination, Hops);
-%         {updateRT, Sender, RTList} ->
-%             processRT(RTList);
-%         {connect,Nickname,PID}->
-%             io:fwrite("~p ~p : Connected to node ~p ~n",[self(),PID,Nickname]),
-%             ripNode(MyNickname,NList ++ [{Nickname,PID}],RTList)
-%     end,
-%     ripNode(MyNickname, NList, RTList).
-
-processMsgQuestion(N, Sender, Desination, Hops, NList, RTList) when Hops > 15 ->
-    io:fwrite("~p ~p : Message to ~p is more than 15 hops ~n",[self(),Sender,Desination]);
-processMsgQuestion(N, Sender, MyNickname, Hops, NList, RTList) ->
-    Answer = computeNthPrime(N),
-    Neighbour = lookup(RTList, Sender),
-    if Neighbour =/= notFound ->
-            Neighbour ! {recieveAnswer, N, Answer, MyNickname, Sender, Hops},
-            ok;
-        true ->
-            ok
-    end,
-    processMsgQuestion(N, Sender, MyNickname, Hops + 1, NList, RTList);
-processMsgQuestion(N, Sender, Desination, Hops, NList, RTList) ->
-    Neighbour = lookup(RTList, Desination),
-    if Neighbour == notFound ->
-            ok;
-        true ->
-            Neighbour ! {computeNthPrime, N, Sender, Desination, Hops + 1},
-            ok
+            ripNode(MyNickname, NList ++ [{Nickname, PID}], UpdatedRTList)
+    end.
+update_routing_table(RTList, Target, PID, Hops) ->
+    case lists:keyfind(Target, 1, RTList) of
+        {Target, _, OldHops} when Hops < OldHops ->
+            lists:keyreplace(Target, 1, RTList, {Target, PID, Hops});
+        {Target, _, _} ->
+            RTList;
+        false ->
+            RTList ++ [{Target, PID, Hops}]
     end.
 
+processMsgQuestion(N, SenderNickname, MyNickname, DestinationNickname, Hops, NList, RTList) when Hops >= 15 ->
+    io:fwrite("~p ~p : Message to ~p is more than 15 hops ~n", [self(), SenderNickname, MyNickname]);
+processMsgQuestion(N, SenderNickname, MyNickname, DestinationNickname, Hops, NList, RTList) ->
+    if MyNickname == DestinationNickname ->
+        Answer = computeNthPrime(N),
+        {Neighbour, _} = lookup(RTList, SenderNickname),
+        if Neighbour =/= notFound ->
+            Neighbour ! {receiveAnswer, N, Answer, MyNickname, Hops},
+            ok;
+        true ->
+            ok
+        end;
+    true ->
+        {Neighbour, _} = lookup(RTList, DestinationNickname),
+        if Neighbour =/= notFound ->
+            Neighbour ! {computeNthPrime, N, SenderNickname, DestinationNickname, Hops + 1},
+            ok;
+        true ->
+            ok
+        end
+    end.
+
+processMsgAnswer(N, M, SenderNickname, MyNickname, Hops, NList, RTList) when Hops >= 15 ->
+    io:fwrite("~p ~p : Message from ~p is more than 15 hops ~n",[self(), SenderNickname, MyNickname]);
+processMsgAnswer(N, M, SenderNickname, MyNickname, Hops, NList, RTList) ->
+    io:format("Answer received: N=~p, M=~p, Sender=~p, Destination=~p, Hops=~p~n",[N, M, SenderNickname, MyNickname, Hops]);
+processMsgAnswer(N, M, Sender, Destination, Hops, NList, RTList) ->
+    {Neighbour, _} = lookup(RTList, Destination),
+    if Neighbour =/= notFound ->
+            Neighbour ! {receiveAnswer, N, M, Destination, Sender, Hops},
+            ok;
+        true ->
+            io:format("Error: Destination not found in the routing table")
+    end.
+
+
 lookup([], _) ->
-    {notFound, 0};
+    notFound;
 lookup([{Sender, Neighbour, Hops} | Tail], Sender) ->
     {Neighbour, Hops};
 lookup([{_, _, _} | Tail], Sender) ->
     lookup(Tail, Sender).
-    
-
-processMsgAnswer(N, M, Sender, Destination, Hops) ->
-    io:format("Answer received: N=~p, M=~p, Sender=~p, Destination=~p, Hops=~p~n",[N, M, Sender, Destination, Hops]).
-
-processRT(RTList) ->
-    io:format("RT List: ~p~n", [RTList]),
-    ok.
 
 computeNthPrime(N) ->
     findPrime(N, 2).
@@ -145,3 +141,4 @@ isPrime(N, CheckNum) ->
         _ ->
             isPrime(N, CheckNum + 1)
     end.
+
