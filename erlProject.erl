@@ -9,15 +9,27 @@ launchNode(Nickname)->
     PID.
 
 % Connect two nodes by their Nicknames and PIDs
-connectNode(FirstNickname, FirstPID, SecondNickname, SecondPID)->
-    FirstNickname!{connect, SecondNickname, SecondPID},
-    SecondNickname!{connect, FirstNickname, FirstPID},
-    FirstNickname!{updateRT, SecondNickname, SecondPID},
-    SecondNickname!{updateRT, FirstNickname, FirstPID}.
+connectNode(FirstNickname, FirstPID, SecondNickname, SecondPID) ->
+    FirstNickname ! {connect, SecondNickname, SecondPID},
+    SecondNickname ! {connect, FirstNickname, FirstPID},
+    FirstNickname ! {updateRT, SecondNickname, SecondPID, 1},
+    SecondNickname ! {updateRT, FirstNickname, FirstPID, 1},
+    propagate_rt(FirstNickname, SecondNickname, SecondPID, 1).
 
+propagate_rt(From, Target, TargetPID, Hops) ->
+    From ! {propagateRT, Target, TargetPID, Hops},
+    From ! {requestNeighbours, self()},
+    receive
+        Neighbours ->
+            [Neighbour ! {propagateRT, Target, TargetPID, Hops + 1} || {_, Neighbour} <- Neighbours]
+    end.
 % Print the routing table of a given node
-printTable(PID)->
-    PID ! {printRoutingTable}.
+printTable(PID) ->
+    PID ! {requestRoutingTable, self()},
+    receive
+        {routingTable, RTList} ->
+            lists:map(fun({Target, _, Hops}) -> {Target, Hops} end, RTList)
+    end.
 
 % Initiate the computation of the Nth prime number
 computeNthPrime(N, SenderNickname, DestinationNickname, Hops)->
@@ -48,6 +60,18 @@ ripNode(MyNickname, NList, RTList) ->
                 processMsgAnswer(N, M, Sender, Destination, Hops, NList, RTList),
                 ripNode(MyNickname, NList, RTList)
             end;
+        {requestNeighbours, Requester} ->
+            Requester ! NList,
+            ripNode(MyNickname, NList, RTList);
+        {requestRoutingTable, Requester} ->
+            Requester ! {routingTable, RTList},
+            ripNode(MyNickname, NList, RTList);
+        {propagateRT, NewNickname, NewPID, Hops} ->
+            UpdatedRTList = update_routing_table(RTList, NewNickname, NewPID, Hops),
+            lists:foreach(fun({Nickname, PID}) ->
+                    PID ! {updateRT, NewNickname, NewPID, Hops + 1}
+                end, NList),
+            ripNode(MyNickname, NList, UpdatedRTList);
         % Update the routing table
         {updateRT, NewNickname, NewPID} ->
             UpdatedRTList = update_routing_table(RTList, NewNickname, NewPID, 1),
@@ -95,7 +119,7 @@ processMsgQuestion(N, SenderNickname, MyNickname, DestinationNickname, Hops, NLi
     end.
 
 processMsgAnswer(N, M, SenderNickname, MyNickname, Hops, NList, RTList) when Hops >= 15 ->
-    io:fwrite("~p ~p : Message from ~p is more than 15 hops ~n",[self(), SenderNickname, MyNickname]);
+    io:format("~p ~p : Message from ~p is more than 15 hops ~n",[self(), SenderNickname, MyNickname]);
 processMsgAnswer(N, M, SenderNickname, MyNickname, Hops, NList, RTList) ->
     io:format("Answer received: N=~p, M=~p, Sender=~p, Destination=~p, Hops=~p~n",[N, M, SenderNickname, MyNickname, Hops]);
 processMsgAnswer(N, M, Sender, Destination, Hops, NList, RTList) ->
