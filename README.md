@@ -13,7 +13,7 @@ This project creates a set of distributed communicating processes that communica
 - **Date:** 31/03/23<br>
 
 - **How to run project:**
-	- **Compile** ->  ```c(erl_proj).```
+	- **Compile** ->  ```c(erlProject).```
 	- **Launch Nodes** -> 
 	```
 	PID1 = erl_proj:launchNode(joe),
