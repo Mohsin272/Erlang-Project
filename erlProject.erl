@@ -1,18 +1,19 @@
 -module(erlProject).
--export([computeNthPrime/4, ripNode/3, launchNode/1, start/1, connectNode/4, printTable/1, rpc/2]).
-
+-export([computeNthPrime/4, ripNode/3, launchNode/1, start/1, connectNode/4, printTable/1,rpc/2,propagate_rt/4]).
+% Create a new node with a given Nickname
 launchNode(Nickname)->
     PID=spawn(fun()->erlProject:start(Nickname) end),
     io:fwrite("~p : Created node as ~p ~n",[PID,Nickname]),
     PID.
 
+% Connect two nodes by their Nicknames and PIDs
 connectNode(FirstNickname, FirstPID, SecondNickname, SecondPID) ->
-    FirstPID ! {connect, SecondNickname, SecondPID},
-    SecondPID ! {connect, FirstNickname, FirstPID},
-    FirstPID ! {updateRT, SecondNickname, SecondPID, 1},
-    SecondPID ! {updateRT, FirstNickname, FirstPID, 1},
-    propagate_rt(FirstPID, SecondNickname, SecondPID, 1),
-    propagate_rt(SecondPID, FirstNickname, FirstPID, 1).
+    FirstNickname ! {connect, SecondNickname, SecondPID},
+    SecondNickname ! {connect, FirstNickname, FirstPID},
+    FirstNickname ! {updateRT, SecondNickname, SecondPID, 1},
+    SecondNickname ! {updateRT, FirstNickname, FirstPID, 1},
+    propagate_rt(FirstNickname, SecondNickname, SecondPID, 1),
+    propagate_rt(SecondNickname, FirstNickname, FirstPID, 1).
 
 propagate_rt(From, Target, TargetPID, Hops) ->
     From ! {propagateRT, Target, TargetPID, Hops},
@@ -21,30 +22,23 @@ propagate_rt(From, Target, TargetPID, Hops) ->
         Neighbours ->
             [Neighbour ! {propagateRT, Target, TargetPID, Hops + 1} || {_, Neighbour} <- Neighbours]
     end.
-
+% Print the routing table of a given node, including the distance to each node
 printTable(PID) ->
     PID ! {requestRoutingTable, self()},
     receive
         {routingTable, RTList} ->
-            RTList1 = lists:map(fun({Target, _, Hops}) -> {Target, Hops} end, RTList),
-            io:format("Routing table for node ~p:~n", [PID]),
-            printTableHelper(RTList1)
+            DistanceList = lists:map(
+                fun({Target, _, Hops}) -> {Target, Hops} end, RTList),
+            io:fwrite("Routing table for node ~p: ~n~p~n", [PID, DistanceList])
     end.
 
-printTableHelper([]) -> ok;
-printTableHelper([{Target, Hops}|T]) ->
-    io:format("  ~p - distance: ~p~n", [Target, Hops]),
-    printTableHelper(T).
-
-
+% Initiate the computation of the Nth prime number
 computeNthPrime(N, SenderNickname, DestinationNickname, Hops)->
     SenderNickname ! {computeNthPrime, N, SenderNickname, DestinationNickname, Hops}.
-
-
+% Start the node with a given Nickname
 start(Nickname)->
     register(Nickname,self()),
     ripNode(Nickname,[],[]).
-
 % Main loop for processing messages
 ripNode(MyNickname, NList, RTList) ->
     receive
@@ -73,7 +67,7 @@ ripNode(MyNickname, NList, RTList) ->
             ripNode(MyNickname, NList, RTList);
         {propagateRT, NewNickname, NewPID, Hops} ->
             UpdatedRTList = update_routing_table(RTList, NewNickname, NewPID, Hops),
-            lists:foreach(fun({Nickname, PID}) ->
+            lists:foreach(fun({_, PID}) ->
                     PID ! {updateRT, NewNickname, NewPID, Hops + 1}
                 end, NList),
             ripNode(MyNickname, NList, UpdatedRTList);
@@ -100,10 +94,9 @@ update_routing_table(RTList, Target, PID, Hops) ->
         false ->
             RTList ++ [{Target, PID, Hops}]
     end.
-
-processMsgQuestion(N, SenderNickname, MyNickname, DestinationNickname, Hops, NList, RTList) when Hops >= 15 ->
+processMsgQuestion(_, SenderNickname, MyNickname, _, Hops, _, _) when Hops >= 15 ->
     io:fwrite("~p ~p : Message to ~p is more than 15 hops ~n", [self(), SenderNickname, MyNickname]);
-processMsgQuestion(N, SenderNickname, MyNickname, DestinationNickname, Hops, NList, RTList) ->
+processMsgQuestion(N, SenderNickname, MyNickname, DestinationNickname, Hops, _, RTList) ->
     if MyNickname == DestinationNickname ->
         Answer = computeNthPrime(N),
         {Neighbour, _} = lookup(RTList, SenderNickname),
@@ -123,11 +116,11 @@ processMsgQuestion(N, SenderNickname, MyNickname, DestinationNickname, Hops, NLi
         end
     end.
 
-processMsgAnswer(N, M, SenderNickname, MyNickname, Hops, NList, RTList) when Hops >= 15 ->
-    io:format("~p ~p : Message from ~p is more than 15 hops ~n",[self(), SenderNickname, MyNickname]);
-processMsgAnswer(N, M, SenderNickname, MyNickname, Hops, NList, RTList) ->
+processMsgAnswer(_, _, SenderNickname, MyNickname, Hops, _, _) when Hops >= 15 ->
+    io:fwrite("~p ~p : Message from ~p is more than 15 hops ~n",[self(), SenderNickname, MyNickname]);
+processMsgAnswer(N, M, SenderNickname, MyNickname, Hops, _, _) ->
     io:format("Answer received: N=~p, M=~p, Sender=~p, Destination=~p, Hops=~p~n",[N, M, SenderNickname, MyNickname, Hops]);
-processMsgAnswer(N, M, Sender, Destination, Hops, NList, RTList) ->
+processMsgAnswer(N, M, Sender, Destination, Hops, _, RTList) ->
     {Neighbour, _} = lookup(RTList, Destination),
     if Neighbour =/= notFound ->
             Neighbour ! {receiveAnswer, N, M, Destination, Sender, Hops},
@@ -135,7 +128,6 @@ processMsgAnswer(N, M, Sender, Destination, Hops, NList, RTList) ->
         true ->
             io:format("Error: Destination not found in the routing table")
     end.
-
 rpc(PID, MSG)->
     PID!{self(),MSG},
     receive
@@ -146,18 +138,14 @@ rpc(PID, MSG)->
             io:format("Received answer from ~p: ~p~n", [From, Reply]),
             Reply
     end.
-
-
 lookup([], _) ->
     notFound;
-lookup([{Sender, Neighbour, Hops} | Tail], Sender) ->
+lookup([{Sender, Neighbour, Hops} | _], Sender) ->
     {Neighbour, Hops};
 lookup([{_, _, _} | Tail], Sender) ->
     lookup(Tail, Sender).
-
 computeNthPrime(N) ->
     findPrime(N, 2).
-
 % Find the nth Prime by checking for primes starting from the current number
 findPrime(0, CurrentNum) ->
     CurrentNum - 1;
@@ -168,14 +156,12 @@ findPrime(N, CurrentNum) ->
         false ->
             findPrime(N, CurrentNum + 1)
     end.
-
 isPrime(1) ->
     false;
 isPrime(2) ->
     true;
 isPrime(N) ->
     isPrime(N, 2).
-
 % Check if a num is prime by dividing with all numbers starting from 2
 isPrime(N, N) ->
     true;
