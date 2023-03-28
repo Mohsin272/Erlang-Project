@@ -20,12 +20,7 @@ This project creates a set of distributed communicating processes that communica
 	PID2 = erlProject:launchNode(bob),
 	PID3 = erlProject:launchNode(fred),
 	PID4 = erlProject:launchNode(amy),
-	PID5 = erlProject:launchNode(dan),
-	PID6 = erlProject:launchNode(mike),
-	PID7 = erlProject:launchNode(ann),
-	PID8 = erlProject:launchNode(jack),
-	PID9 = erlProject:launchNode(mohsin),
-	PID10 = erlProject:launchNode(jeff).
+	PID5 = erlProject:launchNode(dan).
 	```
 	- **Connect Nodes** ->
 	```
@@ -33,12 +28,7 @@ This project creates a set of distributed communicating processes that communica
 	erlProject:connectNode(bob, PID2 , fred, PID3 ),
 	erlProject:connectNode(fred, PID3 , amy, PID4 ),
 	erlProject:connectNode(amy, PID4 , dan, PID5 ),
-	erlProject:connectNode(dan, PID5 , mike, PID6 ),
-	erlProject:connectNode(mike, PID6 , ann, PID7 ),
-	erlProject:connectNode(ann, PID7 , jack, PID8 ),
-	erlProject:connectNode(jack, PID8 , mohsin, PID9 ),
-	erlProject:connectNode(mohsin, PID9 , jeff, PID10 ),
-	erlProject:connectNode(jeff, PID10 , joe, PID1 ).
+	erlProject:connectNode(dan, PID5 , joe, PID1 ).
 	```
 	- **Retrieve Answer** ->
 	```erlProject:rpc(joe,{computeNthPrime,5,joe,bob,1}).```
