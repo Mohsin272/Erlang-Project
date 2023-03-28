@@ -1,20 +1,18 @@
 -module(erlProject).
--export([computeNthPrime/4, ripNode/3, launchNode/1, start/1, connectNode/4, printTable/1,rpc/2]).
+-export([computeNthPrime/4, ripNode/3, launchNode/1, start/1, connectNode/4, printTable/1, rpc/2]).
 
-
-% Create a new node with a given Nickname
 launchNode(Nickname)->
     PID=spawn(fun()->erlProject:start(Nickname) end),
     io:fwrite("~p : Created node as ~p ~n",[PID,Nickname]),
     PID.
 
-% Connect two nodes by their Nicknames and PIDs
 connectNode(FirstNickname, FirstPID, SecondNickname, SecondPID) ->
-    FirstNickname ! {connect, SecondNickname, SecondPID},
-    SecondNickname ! {connect, FirstNickname, FirstPID},
-    FirstNickname ! {updateRT, SecondNickname, SecondPID, 1},
-    SecondNickname ! {updateRT, FirstNickname, FirstPID, 1},
-    propagate_rt(FirstNickname, SecondNickname, SecondPID, 1).
+    FirstPID ! {connect, SecondNickname, SecondPID},
+    SecondPID ! {connect, FirstNickname, FirstPID},
+    FirstPID ! {updateRT, SecondNickname, SecondPID, 1},
+    SecondPID ! {updateRT, FirstNickname, FirstPID, 1},
+    propagate_rt(FirstPID, SecondNickname, SecondPID, 1),
+    propagate_rt(SecondPID, FirstNickname, FirstPID, 1).
 
 propagate_rt(From, Target, TargetPID, Hops) ->
     From ! {propagateRT, Target, TargetPID, Hops},
@@ -23,19 +21,26 @@ propagate_rt(From, Target, TargetPID, Hops) ->
         Neighbours ->
             [Neighbour ! {propagateRT, Target, TargetPID, Hops + 1} || {_, Neighbour} <- Neighbours]
     end.
-% Print the routing table of a given node
+
 printTable(PID) ->
     PID ! {requestRoutingTable, self()},
     receive
         {routingTable, RTList} ->
-            lists:map(fun({Target, _, Hops}) -> {Target, Hops} end, RTList)
+            RTList1 = lists:map(fun({Target, _, Hops}) -> {Target, Hops} end, RTList),
+            io:format("Routing table for node ~p:~n", [PID]),
+            printTableHelper(RTList1)
     end.
 
-% Initiate the computation of the Nth prime number
+printTableHelper([]) -> ok;
+printTableHelper([{Target, Hops}|T]) ->
+    io:format("  ~p - distance: ~p~n", [Target, Hops]),
+    printTableHelper(T).
+
+
 computeNthPrime(N, SenderNickname, DestinationNickname, Hops)->
     SenderNickname ! {computeNthPrime, N, SenderNickname, DestinationNickname, Hops}.
 
-% Start the node with a given Nickname
+
 start(Nickname)->
     register(Nickname,self()),
     ripNode(Nickname,[],[]).
