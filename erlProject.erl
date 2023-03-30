@@ -1,5 +1,5 @@
 -module(erlProject).
--export([computeNthPrime/4, ripNode/3, launchNode/1, start/1, connectNode/4, printTable/1,rpc/2,propagate_rt/4]).
+-export([computeNthPrime/4, ripNode/3, launchNode/1, start/1, connectNode/4, printTable/1,rpc/2]).
 % Create a new node with a given Nickname
 launchNode(Nickname)->
     PID=spawn(fun()->erlProject:start(Nickname) end),
@@ -9,19 +9,7 @@ launchNode(Nickname)->
 % Connect two nodes by their Nicknames and PIDs
 connectNode(FirstNickname, FirstPID, SecondNickname, SecondPID) ->
     FirstNickname ! {connect, SecondNickname, SecondPID},
-    SecondNickname ! {connect, FirstNickname, FirstPID},
-    FirstNickname ! {updateRT, SecondNickname, SecondPID, 1},
-    SecondNickname ! {updateRT, FirstNickname, FirstPID, 1},
-    propagate_rt(FirstNickname, SecondNickname, SecondPID, 1),
-    propagate_rt(SecondNickname, FirstNickname, FirstPID, 1).
-
-propagate_rt(From, Target, TargetPID, Hops) ->
-    From ! {propagateRT, Target, TargetPID, Hops},
-    From ! {requestNeighbours, self()},
-    receive
-        Neighbours ->
-            [Neighbour ! {propagateRT, Target, TargetPID, Hops + 1} || {_, Neighbour} <- Neighbours]
-    end.
+    SecondNickname ! {connect, FirstNickname, FirstPID}.
 % Print the routing table of a given node, including the distance to each node
 printTable(PID) ->
     PID ! {requestRoutingTable, self()},
@@ -33,10 +21,19 @@ printTable(PID) ->
     end.
 
 % Initiate the computation of the Nth prime number
-computeNthPrime(N, SenderNickname, DestinationNickname, Hops)->
-    SenderNickname ! {computeNthPrime, N, SenderNickname, DestinationNickname, Hops}.
+computeNthPrime(N, SenderNickname, DestinationNickname, Hops) ->
+    if Hops >= 15 ->
+        io:fwrite("~p ~p : Message to ~p is more than 15 hops ~n", [self(), SenderNickname, DestinationNickname]),
+        ok;
+    true ->
+        io:fwrite("~p ~p : Computing prime number ~p, sending to ~p~n", [self(), SenderNickname, N, DestinationNickname]),
+        SenderNickname ! {computeNthPrime, N, SenderNickname, DestinationNickname, Hops}
+    end.
+
+
 % Start the node with a given Nickname
 start(Nickname)->
+    timer:send_interval(5000, {send_updates}),
     register(Nickname,self()),
     ripNode(Nickname,[],[]).
 % Main loop for processing messages
@@ -83,8 +80,57 @@ ripNode(MyNickname, NList, RTList) ->
         {connect, Nickname, PID} ->
             UpdatedRTList = update_routing_table(RTList, Nickname, PID, 1),
             io:fwrite("~p ~p : Connected to node ~p ~n", [self(), PID, Nickname]),
-            ripNode(MyNickname, NList ++ [{Nickname, PID}], UpdatedRTList)
+            ripNode(MyNickname, NList ++ [{Nickname, PID}], UpdatedRTList);
+        {send_updates} ->
+            ModifiedRoutes = createNodeMessage(MyNickname, NList, RTList),
+            updateNeighbor(MyNickname, NList, ModifiedRoutes),
+            ripNode(MyNickname, NList, RTList);
+          % Routing updates from neighbors -> check and update routes
+        {route_updates, NeighborNickname, NeighborRT} ->
+            UpdatedRT = update_routes(MyNickname, NList, RTList, NeighborNickname, NeighborRT),
+            ripNode(MyNickname, NList, UpdatedRT)
     end.
+
+% Given the node's nickname, a list of its neighbors, and its current routing table, create a message to send to each neighbor with the routes to each neighbor plus the current routing table
+createNodeMessage(MyNickname, NeighborList, RT) ->
+  RoutesToNeighbors = lists:map(fun({NeighborNickname, _Pid}) -> {NeighborNickname, MyNickname, 1} end, NeighborList),
+  RoutesToNeighbors ++ RT.
+
+% Given the node's nickname, a list of its neighbors, and its current routing table, update the routing table based on the neighbor's information
+updateNeighbor(MyNickname, [{NeighborNickname, _NeighborPid}| NeighborList], Routes) ->
+  NeighborNickname ! {route_updates, MyNickname, Routes},
+  updateNeighbor(MyNickname, NeighborList, Routes);
+updateNeighbor(_, [], _) ->
+  ok.
+
+% Given the node's nickname, a list of its neighbors, its current routing table, the nickname of the neighbor, and a list of routes to check, update the routing table based on the route information
+update_routes(_, _NeighborList, RT, _NeighborNickname, []) ->
+  RT;
+update_routes(MyNickname, NeighborList, RT, NeighborNickname, [{MyNickname, _ConnectionNode, _Distance}| RemainingRoutes]) ->
+  update_routes(MyNickname, NeighborList, RT, NeighborNickname, RemainingRoutes);
+update_routes(MyNickname, NeighborList, RT, NeighborNickname, [{DestinationNickname, _ConnectionNode, Distance}| RemainingRoutes]) ->
+  % Check if the destination is a neighbor. If not, it's possible there are changes to the routing table. If it is, ignore it.
+  case lists:filter(fun(I) -> I == DestinationNickname end, NeighborList) of
+    % Not a neighbor
+    [] ->
+      % Check if there is a route in the routing table. If there is, compare distances and update if the new distance is shorter. If there isn't, just append the new route to the routing table.
+      case lists:keyfind(DestinationNickname, 1, RT) of
+        {DestinationNickname, _Connection, OldDistance} ->
+          case OldDistance > Distance + 1 of
+            false ->
+              update_routes(MyNickname, NeighborList, RT, NeighborNickname, RemainingRoutes);
+            true ->
+              UpdatedRoutingTable = lists:keyreplace(DestinationNickname, 1, RT, {DestinationNickname, NeighborNickname, Distance + 1}),
+              update_routes(MyNickname, NeighborList, UpdatedRoutingTable, NeighborNickname, RemainingRoutes)
+          end;
+        false ->
+          UpdatedRoutingTable = RT ++ [{DestinationNickname, NeighborNickname, Distance + 1}],
+          update_routes(MyNickname, NeighborList, UpdatedRoutingTable, NeighborNickname, RemainingRoutes)
+      end;
+    % A neighbor
+    _ ->
+      update_routes(MyNickname, NeighborList, RT, NeighborNickname, RemainingRoutes)
+  end.
 update_routing_table(RTList, Target, PID, Hops) ->
     case lists:keyfind(Target, 1, RTList) of
         {Target, _, OldHops} when Hops < OldHops ->
@@ -95,7 +141,8 @@ update_routing_table(RTList, Target, PID, Hops) ->
             RTList ++ [{Target, PID, Hops}]
     end.
 processMsgQuestion(_, SenderNickname, MyNickname, _, Hops, _, _) when Hops >= 15 ->
-    io:fwrite("~p ~p : Message to ~p is more than 15 hops ~n", [self(), SenderNickname, MyNickname]);
+    io:fwrite("~p ~p : Message to ~p is more than 15 hops ~n", [self(), SenderNickname, MyNickname]),
+ok;
 processMsgQuestion(N, SenderNickname, MyNickname, DestinationNickname, Hops, _, RTList) ->
     if MyNickname == DestinationNickname ->
         Answer = computeNthPrime(N),
@@ -116,28 +163,32 @@ processMsgQuestion(N, SenderNickname, MyNickname, DestinationNickname, Hops, _, 
         end
     end.
 
-processMsgAnswer(_, _, SenderNickname, MyNickname, Hops, _, _) when Hops >= 15 ->
-    io:fwrite("~p ~p : Message from ~p is more than 15 hops ~n",[self(), SenderNickname, MyNickname]);
-processMsgAnswer(N, M, SenderNickname, MyNickname, Hops, _, _) ->
-    io:format("Answer received: N=~p, M=~p, Sender=~p, Destination=~p, Hops=~p~n",[N, M, SenderNickname, MyNickname, Hops]);
 processMsgAnswer(N, M, Sender, Destination, Hops, _, RTList) ->
-    {Neighbour, _} = lookup(RTList, Destination),
-    if Neighbour =/= notFound ->
+    if Hops >= 15 ->
+        io:fwrite("~p ~p : Message from ~p is more than 15 hops ~n",[self(), Sender, Destination]);
+    Destination == self() ->
+        ok;
+    true ->
+        {Neighbour, _} = lookup(RTList, Destination),
+        if Neighbour =/= notFound ->
             Neighbour ! {receiveAnswer, N, M, Destination, Sender, Hops},
             ok;
         true ->
             io:format("Error: Destination not found in the routing table")
+        end
     end.
-rpc(PID, MSG)->
-    PID!{self(),MSG},
+
+rpc(PID, MSG) ->
+    PID ! {self(), MSG},
     receive
-        {PID,Reply}->
-            io:format("Received answer: ~p~n", [Reply]),
-            Reply;
-        {From,Reply}->
-            io:format("Received answer from ~p: ~p~n", [From, Reply]),
+        {_, {computeNthPrime, _, SenderNickname, DestinationNickname, Hops}} when Hops >= 15 ->
+            io:fwrite("~p ~p : Message to ~p is more than 15 hops~n", [self(), SenderNickname, DestinationNickname]),
+            rpc(PID, MSG);
+        {From, Reply} ->
+            io:format("Received answer from ~p~n", [From]),
             Reply
     end.
+
 lookup([], _) ->
     notFound;
 lookup([{Sender, Neighbour, Hops} | _], Sender) ->
