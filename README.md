@@ -31,7 +31,7 @@ This project creates a set of distributed communicating processes that communica
 	erlProject:connectNode(dan, PID5 , joe, PID1 ).
 	```
 	- **Retrieve Answer** ->
-	```erlProject:rpc(joe,{computeNthPrime,5,joe,bob,1}).```
+	```erlProject:computeNthPrime(5,joe,fred,1).```
 	- **Print Routing Table** ->
 	```erlProject:printTable(PID1).```
 	
@@ -42,4 +42,5 @@ This project creates a set of distributed communicating processes that communica
 	- **doxygen** - Code documentation (optional)
 	
 - **List of files and what they contain:**
-TBC.....
+	- **erlProject.erl** - Main Erlang Project File
+	- **README.md** - README file 
