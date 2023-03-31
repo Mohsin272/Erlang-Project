@@ -3,7 +3,7 @@
 % International License. To view a copy of this license, 
 % visit http://creativecommons.org/licenses/by-nc-sa/4.0/ or send a letter to Creative Commons, 
 % PO Box 1866, Mountain View, CA 94042, USA.
-% Date 21/03/2023
+% Date 31/03/2023
 -module(erlProject).
 -export([computeNthPrime/4, ripNode/3, launchNode/1, start/1, connectNode/4, printTable/1]).
 %%%%%
